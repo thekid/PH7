@@ -16581,9 +16581,27 @@ PH7_PRIVATE ph7_class * PH7_VmExtractClass(
 	pEntry = SyHashGet(&pVm->hClass,(const void *)zName,nByte);
 	
 	if( pEntry == 0 ){
-		/* No such entry,return NULL */
-		iNest = 0; /* cc warning */
-		return 0;
+		ph7_value *apArg[1];
+		ph7_value sAutoLoad, sResult, sName;
+
+		/* Call autoloader, then check class hash again */
+		PH7_MemObjInitFromString(pVm,&sAutoLoad,0);
+		PH7_MemObjStringAppend(&sAutoLoad,(const char *)"__autoload",sizeof("__autoload") - 1);
+		PH7_MemObjInitFromString(pVm,&sName,0);
+		PH7_MemObjStringAppend(&sName,zName,nByte);
+		apArg[0] = &sName;
+		PH7_MemObjInit(pVm,&sResult);
+		PH7_VmCallUserFunction(pVm,&sAutoLoad,1,apArg,&sResult);
+		PH7_MemObjRelease(&sResult);
+		PH7_MemObjRelease(&sAutoLoad);
+		PH7_MemObjRelease(&sName);
+
+		pEntry = SyHashGet(&pVm->hClass,(const void *)zName,nByte);
+		if( pEntry == 0 ){
+			/* No such entry,return NULL */
+			iNest = 0; /* cc warning */
+			return 0;
+		}
 	}
 	pClass = (ph7_class *)pEntry->pUserData;
 	if( !iLoadable ){
